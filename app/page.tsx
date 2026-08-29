@@ -44,7 +44,7 @@ export default async function Home({
             Saved. The problem is out of your head and in your inbox.
           </p>
         ) : null}
-        <QuickCapture error={searchParams.error} />
+        <QuickCapture error={searchParams.error} saved={saved} />
 
         <section className="mt-12">
           <div className="mb-5 flex items-end justify-between gap-4">

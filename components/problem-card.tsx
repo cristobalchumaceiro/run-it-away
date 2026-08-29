@@ -17,8 +17,8 @@ export function ProblemCard({ problem }: { problem: ProblemRow }) {
       href={`/problems/${problem.id}`}
       className="group block rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-card transition hover:-translate-y-0.5 hover:border-orange-300/40 hover:bg-white/[0.075] focus:outline-none focus:ring-2 focus:ring-lime-300"
     >
-      <div className="flex items-start justify-between gap-4">
-        <h2 className="text-lg font-semibold leading-snug text-paper transition group-hover:text-orange-200">
+      <div className="flex min-w-0 items-start justify-between gap-4">
+        <h2 className="min-w-0 flex-1 break-words text-lg font-semibold leading-snug text-paper [overflow-wrap:anywhere] transition group-hover:text-orange-200">
           {problem.title}
         </h2>
         <span

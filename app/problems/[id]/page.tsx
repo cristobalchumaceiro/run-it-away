@@ -11,6 +11,16 @@ function formatTimestamp(date: Date) {
   }).format(date);
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getTranscriptText(transcript: unknown): string | null {
+  if (typeof transcript === 'string') return transcript;
+  if (isJsonObject(transcript) && typeof transcript.note === 'string') return transcript.note;
+  return null;
+}
+
 export default async function ProblemHub({ params }: { params: { id: string } }) {
   const problem = await getProblem(params.id);
   if (!problem) notFound();
@@ -32,7 +42,7 @@ export default async function ProblemHub({ params }: { params: { id: string } })
             </span>
             <span className="text-xs uppercase tracking-[0.14em] text-white/35">Problem hub</span>
           </div>
-          <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-[-0.035em] text-paper sm:text-5xl">{problem.title}</h1>
+          <h1 className="mt-5 break-words text-4xl font-semibold leading-[1.08] tracking-[-0.035em] text-paper [overflow-wrap:anywhere] sm:text-5xl">{problem.title}</h1>
           <p className="mt-5 text-sm text-white/40">
             Created {formatTimestamp(problem.createdAt)} · Updated {formatTimestamp(problem.updatedAt)}
           </p>
@@ -73,17 +83,19 @@ export default async function ProblemHub({ params }: { params: { id: string } })
             </div>
             {sessions.length ? (
               <div className="mt-5 space-y-3">
-                {sessions.map((session) => (
-                  <div key={session.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-                    <div className="flex flex-wrap justify-between gap-2 text-sm">
-                      <span className="font-semibold text-paper">{formatTimestamp(session.startedAt)}</span>
-                      <span className="text-white/40">{session.endedAt ? `Ended ${formatTimestamp(session.endedAt)}` : 'In progress'}</span>
+                {sessions.map((session) => {
+                  const transcript = getTranscriptText(session.transcript);
+
+                  return (
+                    <div key={session.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+                      <div className="flex flex-wrap justify-between gap-2 text-sm">
+                        <span className="font-semibold text-paper">{formatTimestamp(session.startedAt)}</span>
+                        <span className="text-white/40">{session.endedAt ? `Ended ${formatTimestamp(session.endedAt)}` : 'In progress'}</span>
+                      </div>
+                      {transcript !== null ? <p className="mt-3 text-sm leading-6 text-white/55">{transcript}</p> : null}
                     </div>
-                    {session.transcript ? (
-                      <p className="mt-3 text-sm leading-6 text-white/55">{JSON.stringify(session.transcript)}</p>
-                    ) : null}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border border-dashed border-white/15 px-5 py-9 text-sm text-white/40">

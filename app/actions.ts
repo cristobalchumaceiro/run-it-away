@@ -1,6 +1,6 @@
 'use server';
 
-import { createProblem } from '@/lib/db';
+import { createProblem, createSession, setProblemPinned } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -15,4 +15,17 @@ export async function saveBrainDump(formData: FormData) {
   await createProblem({ title, rawContext });
   revalidatePath('/');
   redirect(`/?saved=${Date.now()}`);
+}
+
+export async function startThinkingSession(problemId: string, _formData: FormData) {
+  await createSession({ problemId, trigger: 'manual' });
+  revalidatePath('/');
+  revalidatePath(`/problems/${problemId}`);
+  redirect(`/problems/${problemId}`);
+}
+
+export async function toggleProblemPinned(problemId: string, pinned: boolean, _formData: FormData) {
+  await setProblemPinned(problemId, pinned);
+  revalidatePath('/');
+  revalidatePath(`/problems/${problemId}`);
 }

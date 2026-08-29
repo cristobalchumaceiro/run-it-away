@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { listProblems } from '@/lib/db';
+import { selectProblemForRun, listProblems } from '@/lib/db';
 import { ProblemCard } from '@/components/problem-card';
 import { QuickCapture } from '@/components/quick-capture';
+import { startThinkingSession } from '@/app/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,7 @@ export default async function Home({
   searchParams: { saved?: string; error?: string };
 }) {
   const problems = await listProblems();
+  const selection = await selectProblemForRun();
   const saved = typeof searchParams.saved === 'string' && searchParams.saved.length > 0;
 
   return (
@@ -45,6 +47,45 @@ export default async function Home({
           </p>
         ) : null}
         <QuickCapture error={searchParams.error} savedToken={searchParams.saved} />
+
+        <section className="mt-12">
+          <div className="mb-5">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime-300">Today&apos;s problem</p>
+            <h2 className="mt-2 text-2xl font-semibold text-paper">One thing to take with you</h2>
+          </div>
+          {selection ? (
+            <div className="rounded-3xl border border-lime-300/20 bg-lime-300/[0.07] p-5 shadow-card sm:p-7">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime-300">
+                {selection.reason === 'pinned'
+                  ? 'You pinned this'
+                  : `Untouched since ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(selection.lastTouchedAt)}`}
+              </p>
+              <h3 className="mt-3 min-w-0 break-words text-2xl font-semibold leading-tight text-paper [overflow-wrap:anywhere]">
+                {selection.problem.title}
+              </h3>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <form action={startThinkingSession.bind(null, selection.problem.id)}>
+                  <button
+                    type="submit"
+                    className="min-h-16 w-full rounded-2xl bg-lime-300 px-6 text-base font-black text-ink transition hover:bg-lime-200 focus:outline-none focus:ring-4 focus:ring-lime-300/30 active:scale-[0.99] sm:w-auto"
+                  >
+                    Start thinking session
+                  </button>
+                </form>
+                <Link
+                  href={`/problems/${selection.problem.id}`}
+                  className="inline-flex min-h-16 items-center justify-center rounded-2xl border border-white/15 px-5 text-sm font-bold text-paper transition hover:border-lime-300/50 hover:text-lime-200 focus:outline-none focus:ring-2 focus:ring-lime-300"
+                >
+                  View problem hub
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-white/15 px-5 py-10 text-center text-white/45">
+              Nothing open to chew on.
+            </div>
+          )}
+        </section>
 
         <section className="mt-12">
           <div className="mb-5 flex items-end justify-between gap-4">

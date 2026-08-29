@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { startThinkingSession, toggleProblemPinned } from '@/app/actions';
 import { getProblem, listSessionsForProblem } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,19 @@ export default async function ProblemHub({ params }: { params: { id: string } })
               {problem.status}
             </span>
             <span className="text-xs uppercase tracking-[0.14em] text-white/35">Problem hub</span>
+            <form className="ml-auto" action={toggleProblemPinned.bind(null, problem.id, !problem.pinned)}>
+              <button
+                type="submit"
+                aria-pressed={problem.pinned}
+                className={`min-h-11 rounded-full border px-4 text-xs font-bold uppercase tracking-[0.14em] transition focus:outline-none focus:ring-2 focus:ring-lime-300 ${
+                  problem.pinned
+                    ? 'border-lime-300/40 bg-lime-300/15 text-lime-200 hover:bg-lime-300/25'
+                    : 'border-white/15 text-white/55 hover:border-lime-300/40 hover:text-lime-200'
+                }`}
+              >
+                {problem.pinned ? 'Unpin problem' : 'Pin problem'}
+              </button>
+            </form>
           </div>
           <h1 className="mt-5 break-words text-4xl font-semibold leading-[1.08] tracking-[-0.035em] text-paper [overflow-wrap:anywhere] sm:text-5xl">{problem.title}</h1>
           <p className="mt-5 text-sm text-white/40">
@@ -62,15 +76,14 @@ export default async function ProblemHub({ params }: { params: { id: string } })
             <p className="mt-2 max-w-xl text-sm leading-6 text-white/55">
               Start a thinking session and come back with one concrete next move.
             </p>
-            <button
-              type="button"
-              disabled
-              title="Live sessions are coming in iteration 2"
-              className="mt-6 min-h-16 w-full cursor-not-allowed rounded-2xl bg-lime-300 px-6 text-lg font-black text-ink opacity-75 sm:w-auto sm:min-w-56"
-            >
-              Start run
-            </button>
-            <p className="mt-3 text-xs text-white/40">Coming in the live session · capture is ready now.</p>
+            <form action={startThinkingSession.bind(null, problem.id)}>
+              <button
+                type="submit"
+                className="mt-6 min-h-16 w-full rounded-2xl bg-lime-300 px-6 text-lg font-black text-ink transition hover:bg-lime-200 focus:outline-none focus:ring-4 focus:ring-lime-300/30 active:scale-[0.99] sm:w-auto sm:min-w-56"
+              >
+                Start thinking session
+              </button>
+            </form>
           </section>
 
           <section className="mt-10">
@@ -89,7 +102,12 @@ export default async function ProblemHub({ params }: { params: { id: string } })
                   return (
                     <div key={session.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
                       <div className="flex flex-wrap justify-between gap-2 text-sm">
-                        <span className="font-semibold text-paper">{formatTimestamp(session.startedAt)}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-paper">{formatTimestamp(session.startedAt)}</span>
+                          <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
+                            {session.trigger === 'tracker' ? 'Tracker' : 'Manual'}
+                          </span>
+                        </div>
                         <span className="text-white/40">{session.endedAt ? `Ended ${formatTimestamp(session.endedAt)}` : 'In progress'}</span>
                       </div>
                       {transcript !== null ? <p className="mt-3 text-sm leading-6 text-white/55">{transcript}</p> : null}

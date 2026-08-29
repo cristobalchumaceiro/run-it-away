@@ -8,13 +8,12 @@ import {
   useConversationStatus,
   type HookOptions
 } from '@elevenlabs/react';
-import { endThinkingSession, saveRunnerUtterance } from '@/app/actions';
+import { endThinkingSession, requestConversationToken, saveRunnerUtterance } from '@/app/actions';
 
 type VoiceAgentProps = {
   sessionId: string;
   problemId: string;
   problemContext: string;
-  agentId: string;
 };
 
 type ConversationLine = {
@@ -26,7 +25,7 @@ type ConversationLine = {
 type MessagePayload = NonNullable<HookOptions['onMessage']> extends (payload: infer Payload) => void ? Payload : never;
 type VoiceAgentInnerProps = VoiceAgentProps & { lines: ConversationLine[] };
 
-function VoiceAgentInner({ sessionId, problemContext, agentId, lines }: VoiceAgentInnerProps) {
+function VoiceAgentInner({ sessionId, problemContext, lines }: VoiceAgentInnerProps) {
   const { startSession, endSession } = useConversationControls();
   const { status, message: statusMessage } = useConversationStatus();
   const { isSpeaking, isListening } = useConversationMode();
@@ -43,9 +42,21 @@ function VoiceAgentInner({ sessionId, problemContext, agentId, lines }: VoiceAge
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
+      const tokenResult = await requestConversationToken(sessionId);
+      if (!tokenResult.ok) {
+        const messages = {
+          unconfigured: 'The voice agent is not configured. Check the server configuration.',
+          session: 'The voice agent could not connect because this thinking session has ended.',
+          auth: 'The ElevenLabs credential was rejected. Check the server configuration.',
+          network: 'The voice agent could not connect. Check your connection and try again.'
+        };
+        setCallError(messages[tokenResult.reason]);
+        return;
+      }
       startedRef.current = true;
       startSession({
-        agentId,
+        conversationToken: tokenResult.token,
+        connectionType: 'webrtc',
         dynamicVariables: { problem_context: problemContext }
       });
     } catch (error) {
@@ -57,7 +68,7 @@ function VoiceAgentInner({ sessionId, problemContext, agentId, lines }: VoiceAge
     } finally {
       attemptInFlightRef.current = false;
     }
-  }, [agentId, problemContext, startSession]);
+  }, [problemContext, sessionId, startSession]);
 
   useEffect(() => {
     if (autoStartRef.current) return;

@@ -193,6 +193,6 @@ serverless instance restarts; it is intended for demos, not persistence.
 
 ### Voice agent
 
-Set `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` to the id of a public ElevenLabs agent
-with authentication disabled. The browser connects with that agent id alone;
-this app does not use or require an ElevenLabs API key.
+Set `ELEVENLABS_AGENT_ID` and `ELEVENLABS_API_KEY` for the authenticated
+ElevenLabs agent. The server mints a WebRTC conversation token with the API key;
+the key never reaches the browser.

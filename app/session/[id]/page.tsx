@@ -38,7 +38,9 @@ export default async function SessionPage({ params }: { params: { id: string } }
   const notes = await listNotesForSession(session.id);
   const problemNotes = await listNotesForProblem(problem.id);
   const problemContext = buildProblemContext(problem.title, problem.rawContext, problemNotes);
-  const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID?.trim();
+  const agentId = process.env.ELEVENLABS_AGENT_ID?.trim();
+  const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
+  const voiceAgentConfigured = Boolean(agentId && apiKey);
 
   return (
     <main className="min-h-screen px-5 py-8 sm:px-8 sm:py-12">
@@ -58,17 +60,16 @@ export default async function SessionPage({ params }: { params: { id: string } }
 
         <section className="mt-8">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime-300">Capture without stopping</p>
-          {agentId ? (
+          {voiceAgentConfigured ? (
             <VoiceAgent
               sessionId={session.id}
               problemId={problem.id}
               problemContext={problemContext}
-              agentId={agentId}
             />
           ) : (
             <div className="mt-6 rounded-2xl border border-orange-300/25 bg-orange-300/[0.07] p-5">
               <p className="text-base leading-7 text-orange-100">
-                The voice agent isn&apos;t configured. Set NEXT_PUBLIC_ELEVENLABS_AGENT_ID to enable voice calls.
+                The voice agent isn&apos;t configured. Set ELEVENLABS_AGENT_ID and ELEVENLABS_API_KEY to enable voice calls.
               </p>
             </div>
           )}
@@ -89,7 +90,7 @@ export default async function SessionPage({ params }: { params: { id: string } }
           </section>
         ) : null}
 
-        {!agentId ? (
+        {!voiceAgentConfigured ? (
           <form className="mt-10" action={endThinkingSession.bind(null, session.id)}>
             <button
               type="submit"

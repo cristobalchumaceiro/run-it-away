@@ -100,6 +100,16 @@ export async function endThinkingSession(sessionId: string, _formData: FormData)
   redirect(`/session/${sessionId}/reflect`);
 }
 
+export async function saveRunnerUtterance(sessionId: string, problemId: string, body: string) {
+  if (!body.trim()) return;
+  const session = await getSession(sessionId);
+  if (!session || session.problemId !== problemId) return;
+  await createNote({ problemId, sessionId, kind: 'voice', body, uncertain: true });
+  revalidatePath(`/session/${sessionId}`);
+  revalidatePath(`/session/${sessionId}/reflect`);
+  revalidatePath(`/problems/${problemId}`);
+}
+
 async function saveNote(
   sessionId: string,
   problemId: string,
@@ -117,14 +127,6 @@ async function saveNote(
   revalidatePath(`/problems/${problemId}`);
   if (kind === 'next_step') redirect(`/problems/${problemId}`);
   redirect(`/session/${sessionId}`);
-}
-
-export async function saveVoiceNote(sessionId: string, problemId: string, formData: FormData) {
-  await saveNote(sessionId, problemId, 'voice', formData, true);
-}
-
-export async function saveTextNote(sessionId: string, problemId: string, formData: FormData) {
-  await saveNote(sessionId, problemId, 'text', formData, false);
 }
 
 export async function saveNextStep(sessionId: string, problemId: string, formData: FormData) {

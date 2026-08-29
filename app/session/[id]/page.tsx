@@ -1,8 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
 import { endThinkingSession } from '@/app/actions';
 import { ElapsedTime } from '@/components/elapsed-time';
-import { VoiceCapture } from '@/components/voice-capture';
-import { getProblem, getSession, listNotesForSession } from '@/lib/db';
+import { VoiceAgent } from '@/components/voice-agent';
+import { getProblem, getSession, listNotesForProblem, listNotesForSession } from '@/lib/db';
+import type { NoteRow } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,21 @@ function formatNoteKind(kind: 'voice' | 'text' | 'next_step') {
   if (kind === 'voice') return 'Dictated thought';
   if (kind === 'next_step') return 'Next step';
   return 'Thought';
+}
+
+function buildProblemContext(title: string, rawContext: string | null, notes: NoteRow[]) {
+  const noteLines = notes.map(
+    (note) =>
+      `${formatNoteKind(note.kind)}: ${note.body}${note.uncertain ? ' (possibly misheard)' : ''}`
+  );
+  const lines = [
+    `Problem: ${title}`,
+    `Background: ${rawContext || 'No additional background was provided.'}`,
+    'Existing thinking, oldest first:',
+    ...noteLines
+  ];
+  while (lines.length > 3 && lines.join('\n').length > 4000) lines.splice(3, 1);
+  return lines.join('\n');
 }
 
 export default async function SessionPage({ params }: { params: { id: string } }) {
@@ -20,6 +36,9 @@ export default async function SessionPage({ params }: { params: { id: string } }
   const problem = await getProblem(session.problemId);
   if (!problem) notFound();
   const notes = await listNotesForSession(session.id);
+  const problemNotes = await listNotesForProblem(problem.id);
+  const problemContext = buildProblemContext(problem.title, problem.rawContext, problemNotes);
+  const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID?.trim();
 
   return (
     <main className="min-h-screen px-5 py-8 sm:px-8 sm:py-12">
@@ -39,7 +58,20 @@ export default async function SessionPage({ params }: { params: { id: string } }
 
         <section className="mt-8">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime-300">Capture without stopping</p>
-          <VoiceCapture sessionId={session.id} problemId={problem.id} />
+          {agentId ? (
+            <VoiceAgent
+              sessionId={session.id}
+              problemId={problem.id}
+              problemContext={problemContext}
+              agentId={agentId}
+            />
+          ) : (
+            <div className="mt-6 rounded-2xl border border-orange-300/25 bg-orange-300/[0.07] p-5">
+              <p className="text-base leading-7 text-orange-100">
+                The voice agent isn&apos;t configured. Set NEXT_PUBLIC_ELEVENLABS_AGENT_ID to enable voice calls.
+              </p>
+            </div>
+          )}
         </section>
 
         {notes.length ? (
@@ -57,14 +89,16 @@ export default async function SessionPage({ params }: { params: { id: string } }
           </section>
         ) : null}
 
-        <form className="mt-10" action={endThinkingSession.bind(null, session.id)}>
-          <button
-            type="submit"
-            className="min-h-16 w-full rounded-2xl bg-orange-300 px-6 text-lg font-black text-ink transition hover:bg-orange-200 focus:outline-none focus:ring-4 focus:ring-orange-300/30 active:scale-[0.99]"
-          >
-            End run
-          </button>
-        </form>
+        {!agentId ? (
+          <form className="mt-10" action={endThinkingSession.bind(null, session.id)}>
+            <button
+              type="submit"
+              className="min-h-16 w-full rounded-2xl bg-orange-300 px-6 text-lg font-black text-ink transition hover:bg-orange-200 focus:outline-none focus:ring-4 focus:ring-orange-300/30 active:scale-[0.99]"
+            >
+              End run
+            </button>
+          </form>
+        ) : null}
       </div>
     </main>
   );

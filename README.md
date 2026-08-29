@@ -161,3 +161,32 @@ Prompt    id, problem_id, activity_id, sent_at, response (accepted|swapped|decli
 ## Status
 
 Concept and README. Built at a hackathon; contributions and forks welcome.
+
+---
+
+## Getting started / running locally
+
+Run It Away is a Next.js App Router app with a Postgres schema managed by Drizzle.
+The app also has a seeded in-memory fallback, so it runs locally and builds on
+Vercel without database provisioning.
+
+```bash
+npm install
+npm run dev
+```
+
+Then open [http://localhost:3000](http://localhost:3000).
+
+### Optional Postgres
+
+Set `DATABASE_URL` to a Postgres connection string (Neon works well for Vercel):
+
+```bash
+export DATABASE_URL="postgres://..."
+npx drizzle-kit migrate
+npx tsx lib/db/seed.ts
+```
+
+When `DATABASE_URL` is unset, the app uses the same demo problems and sessions
+from an in-memory repository. That fallback resets when a server process or
+serverless instance restarts; it is intended for demos, not persistence.

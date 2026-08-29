@@ -10,15 +10,16 @@ function daysAgo(days: number, hour = 9, minute = 0): Date {
 export const seedProblems: ProblemRow[] = [
   {
     id: '11111111-1111-4111-8111-111111111111',
-    title: 'Why does the CI job hang only on the second retry?',
-    rawContext: `It is the integration-linux job in the payments repo. First run usually fails in 4-6 min with a timeout, then retry #1 passes, but every so often retry #2 just sits there until the 45 minute GitHub timeout.
+    title: 'Seminar attendance collapses in week six, every single term',
+    rawContext: `Twenty-two enrolled, eighteen or nineteen show up until week five, then it drops to eight or nine and never recovers. Same shape last year and the year before, across two different rooms and two different times of day.
 
-Last useful clue from the logs:
-  waiting for postgres://localhost:5432
-  connection refused (127.0.0.1:5432)
-  testcontainers: waiting for container readiness
+What I know:
+- The reading load roughly doubles in week six, when the primary sources come in.
+- The first assessed essay is due in week eight.
+- The students who stop coming are not the ones doing badly; several of them are the strongest writers.
+- Attendance is not graded, and I do not want it to be.
 
-The runner has 2 vCPU / 7 GB. We started parallelizing the contract tests last week. Could be a leaked container or the service health check racing the test setup. Need to compare the job's container list before and after the retry, and check whether the cleanup step runs when pytest is killed.`,
+So it is probably not laziness and probably not the room. It may be that week six is where the course stops rewarding attendance: once they have the reading list, the seminar looks optional next to the essay deadline. Worth deciding whether to restructure the reading, move the deadline, or change what actually happens in the room in week six.`,
     status: 'open',
     pinned: false,
     createdAt: daysAgo(2, 9, 15),
@@ -26,16 +27,15 @@ The runner has 2 vCPU / 7 GB. We started parallelizing the contract tests last w
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
-    title: 'Should we split the notification worker out of the API?',
-    rawContext: `The worker is now doing about 38% of the API's CPU during the morning send window. Splitting it sounds clean, but the current process shares the feature-flag client, DB pool, and a tiny bit of retry state.
+    title: 'Should the literature review be organised by method or by chronology?',
+    rawContext: `Chronology is the easy write: it tells a story, and the shift in the field around 2014 falls out naturally. But it buries the thing I actually want to argue, which is that two incompatible measurement approaches have been talking past each other for a decade.
 
-Constraints:
-- Team is two backend engineers through Q4.
-- We cannot introduce Kafka just for this; SQS is already available.
-- A deploy must not drop scheduled sends.
-- The API currently owns the only dashboard for failed notifications.
+Organising by method puts that front and centre, at a cost:
+- Three papers refuse to sit in one camp and would need to appear twice.
+- My supervisor's own work reads more naturally in the chronological version.
+- The reader loses the sense of the field moving, which matters for the funding case in chapter one.
 
-The real question is whether this is an operational boundary or just an ugly function boundary. Maybe first move the queue consumer behind an internal interface and measure the actual failure modes for two weeks.`,
+The real question is whether the review is there to summarise the field or to set up my contribution. If it is the latter, chronology is a comfortable mistake.`,
     status: 'open',
     pinned: false,
     createdAt: daysAgo(7, 13, 5),
@@ -43,16 +43,15 @@ The real question is whether this is an operational boundary or just an ugly fun
   },
   {
     id: '33333333-3333-4333-8333-333333333333',
-    title: 'The query got slow after the customer_events migration',
-    rawContext: `The weekly retention report went from ~9 seconds to 2m 14s after moving customer_events from the old partitioned table. Same date range, same approximate row count.
+    title: 'The headline finding flips when the sample is weighted',
+    rawContext: `Unweighted, the effect is a clean 6.2 points in favour. Applying the demographic weights the funder asked for, it goes to -1.4 and the confidence interval crosses zero. Same respondents, same question wording.
 
-EXPLAIN starts like this:
-  Gather  (cost=1000.00..884321.22 rows=420 width=96)
-    Workers Planned: 2
-    ->  Parallel Seq Scan on customer_events
-       Filter: ((account_id = $1) AND (occurred_at >= $2))
+Where it came apart:
+  under-25 respondents: 11% of the sample, 24% of the population
+  weight applied to that cell: 2.2
+  and that cell is the only one where the effect runs the other way
 
-There is an index on (occurred_at), but not account_id first. The migration also changed occurred_at from timestamp to timestamptz. Need to check stats freshness, compare the old query plan, and test a partial composite index before touching the report code.`,
+So the whole result rests on about forty people who are being counted twice over. That is not a finding, it is a sampling problem wearing a finding's clothes. Need to say plainly in the write-up which estimate is reported and why, rather than quietly picking the flattering one.`,
     status: 'solved',
     pinned: false,
     createdAt: daysAgo(14, 8, 30),
@@ -67,7 +66,7 @@ export const seedSessions: SessionRow[] = [
     trigger: 'manual',
     startedAt: daysAgo(14, 12, 0),
     endedAt: daysAgo(14, 12, 28),
-    transcript: { note: 'Compared the old and new plans; the planner stopped using the account filter.' }
+    transcript: { note: 'Checked which cell the weights were doing the work in. It was the under-25s, on their own.' }
   },
   {
     id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
@@ -75,6 +74,6 @@ export const seedSessions: SessionRow[] = [
     trigger: 'manual',
     startedAt: daysAgo(12, 7, 45),
     endedAt: daysAgo(12, 8, 5),
-    transcript: { note: 'Tested a composite index locally. Runtime dropped below 11 seconds.' }
+    transcript: { note: "Recomputed with the funder's weights and without. Decided to report both, with the caveat stated up front." }
   }
 ];

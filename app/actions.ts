@@ -15,6 +15,7 @@ import {
   updatePromptState
 } from '@/lib/db';
 import { startActivity, type ActivityKind } from '@/lib/activity';
+import { hasSpeechContent } from '@/lib/voice-content';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -114,6 +115,7 @@ export async function endThinkingSession(sessionId: string, _formData: FormData)
 
 export async function saveRunnerUtterance(sessionId: string, problemId: string, body: string) {
   if (!body.trim()) return;
+  if (!hasSpeechContent(body)) return;
   const session = await getSession(sessionId);
   if (!session || session.problemId !== problemId) return;
   await createNote({ problemId, sessionId, kind: 'voice', body, uncertain: true });

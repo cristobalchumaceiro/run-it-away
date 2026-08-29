@@ -104,7 +104,7 @@ export default async function Home({
         <section className="mt-12">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Your open loops</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Still open</p>
               <h2 className="mt-2 text-2xl font-semibold text-paper">Problems to step away from</h2>
             </div>
             <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-white/45">{problems.length}</span>

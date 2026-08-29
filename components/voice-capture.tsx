@@ -34,8 +34,16 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
     };
     recognition.onerror = (event) => {
       setListening(false);
-      setError(event.error === 'not-allowed' ? 'Microphone access was denied.' : 'Speech recognition ran into an error.');
-      setSupported(false);
+      const permanentErrors = ['not-allowed', 'service-not-allowed', 'audio-capture'];
+      const permanent = permanentErrors.includes(event.error);
+      setError(
+        permanent
+          ? event.error === 'not-allowed'
+            ? 'Microphone access was denied.'
+            : 'Speech recognition is unavailable.'
+          : "It didn't catch anything. Tap to try again."
+      );
+      if (permanent) setSupported(false);
     };
     recognition.onend = () => setListening(false);
     recognitionRef.current = recognition;
@@ -61,12 +69,11 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
       recognition.start();
       setListening(true);
     } catch {
-      setError('Speech recognition could not start. You can type instead.');
-      setSupported(false);
+      setError("It didn't catch anything. Tap to try again.");
     }
   }
 
-  if (supported === false || error) {
+  if (supported === false) {
     return (
       <div className="mt-6 rounded-2xl border border-orange-300/25 bg-orange-300/[0.07] p-4">
         <p className="text-sm leading-6 text-orange-100">
@@ -105,6 +112,7 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
       >
         {listening ? 'Stop listening' : 'Talk through it'}
       </button>
+      {error ? <p className="mt-3 text-sm leading-6 text-orange-100">{error}</p> : null}
       <div aria-live="polite" className="mt-4 min-h-16 rounded-2xl border border-white/10 bg-black/20 p-4 text-base leading-7 text-white/75">
         {dictatedText || 'Your words will appear here as you speak.'}
       </div>

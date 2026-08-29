@@ -3,7 +3,7 @@ import {
   createPrompt,
   selectProblemForRun
 } from '@/lib/db';
-import type { ActivityRow, ProblemRow } from '@/lib/db/schema';
+import type { ActivityRow } from '@/lib/db/schema';
 
 export type ActivityKind = ActivityRow['kind'];
 
@@ -44,11 +44,7 @@ export async function startActivity(input: {
     prompted: true,
     activityId: activity.id,
     promptId: prompt.id,
-    problem: getProblemSummary(selection.problem),
+    problem: { id: selection.problem.id, title: selection.problem.title },
     reason: selection.reason
   };
-}
-
-function getProblemSummary(problem: ProblemRow) {
-  return { id: problem.id, title: problem.title };
 }

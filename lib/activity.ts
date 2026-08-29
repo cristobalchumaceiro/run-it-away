@@ -1,9 +1,11 @@
 import {
   createActivity,
   createPrompt,
+  getProblem,
+  latestPendingPrompt,
   selectProblemForRun
 } from '@/lib/db';
-import type { ActivityRow, ProblemRow } from '@/lib/db/schema';
+import type { ActivityRow } from '@/lib/db/schema';
 
 export type ActivityKind = ActivityRow['kind'];
 
@@ -30,6 +32,20 @@ export async function startActivity(input: {
     return { prompted: false, activityId: activity.id, reason: 'race' };
   }
 
+  const pendingPrompt = await latestPendingPrompt();
+  if (pendingPrompt) {
+    const problem = await getProblem(pendingPrompt.problemId);
+    if (problem) {
+      return {
+        prompted: true,
+        activityId: activity.id,
+        promptId: pendingPrompt.id,
+        problem: { id: problem.id, title: problem.title },
+        reason: problem.pinned ? 'pinned' : 'neglected'
+      };
+    }
+  }
+
   const selection = await selectProblemForRun();
   if (!selection) {
     return { prompted: false, activityId: activity.id, reason: 'no-open-problems' };
@@ -44,11 +60,7 @@ export async function startActivity(input: {
     prompted: true,
     activityId: activity.id,
     promptId: prompt.id,
-    problem: getProblemSummary(selection.problem),
+    problem: { id: selection.problem.id, title: selection.problem.title },
     reason: selection.reason
   };
-}
-
-function getProblemSummary(problem: ProblemRow) {
-  return { id: problem.id, title: problem.title };
 }

@@ -3,9 +3,12 @@
 import {
   createProblem,
   createPrompt,
+  createNote,
   createSession,
+  endSession,
   getActivity,
   getPrompt,
+  getSession,
   listPromptsForActivity,
   selectProblemForRun,
   setProblemPinned,
@@ -29,10 +32,10 @@ export async function saveBrainDump(formData: FormData) {
 }
 
 export async function startThinkingSession(problemId: string, _formData: FormData) {
-  await createSession({ problemId, trigger: 'manual' });
+  const session = await createSession({ problemId, trigger: 'manual' });
   revalidatePath('/');
   revalidatePath(`/problems/${problemId}`);
-  redirect(`/problems/${problemId}`);
+  redirect(`/session/${session.id}`);
 }
 
 export async function toggleProblemPinned(problemId: string, pinned: boolean, _formData: FormData) {
@@ -49,14 +52,14 @@ export async function acceptPrompt(promptId: string, _formData: FormData) {
   if (!activity) return;
 
   await updatePromptState(prompt.id, 'accepted');
-  await createSession({
+  const session = await createSession({
     problemId: prompt.problemId,
     trigger: 'tracker',
     startedAt: activity.startedAt
   });
   revalidatePath('/');
   revalidatePath(`/problems/${prompt.problemId}`);
-  redirect(`/problems/${prompt.problemId}`);
+  redirect(`/session/${session.id}`);
 }
 
 export async function declinePrompt(promptId: string, _formData: FormData) {
@@ -86,4 +89,46 @@ export async function startDemoActivity(kind: ActivityKind, _formData: FormData)
     redirect(`/tracker?outcome=prompted&problem=${encodeURIComponent(result.problem.title)}`);
   }
   redirect(`/tracker?outcome=${result.reason}`);
+}
+
+export async function endThinkingSession(sessionId: string, _formData: FormData) {
+  const session = await getSession(sessionId);
+  if (!session) return;
+  await endSession(sessionId);
+  revalidatePath(`/session/${sessionId}`);
+  revalidatePath(`/session/${sessionId}/reflect`);
+  redirect(`/session/${sessionId}/reflect`);
+}
+
+async function saveNote(
+  sessionId: string,
+  problemId: string,
+  kind: 'voice' | 'text' | 'next_step',
+  formData: FormData,
+  uncertain: boolean
+) {
+  const body = String(formData.get('body') ?? '');
+  if (!body.trim()) redirect(`/session/${sessionId}${kind === 'next_step' ? '/reflect?error=empty' : '?error=empty'}`);
+  const session = await getSession(sessionId);
+  if (!session || session.problemId !== problemId) return;
+  await createNote({ problemId, sessionId, kind, body, uncertain });
+  revalidatePath(`/session/${sessionId}`);
+  revalidatePath(`/session/${sessionId}/reflect`);
+  revalidatePath(`/problems/${problemId}`);
+  if (kind === 'next_step') redirect(`/problems/${problemId}`);
+  redirect(`/session/${sessionId}`);
+}
+
+export async function saveVoiceNote(sessionId: string, problemId: string, formData: FormData) {
+  await saveNote(sessionId, problemId, 'voice', formData, true);
+}
+
+export async function saveTextNote(sessionId: string, problemId: string, formData: FormData) {
+  await saveNote(sessionId, problemId, 'text', formData, false);
+}
+
+export async function saveNextStep(sessionId: string, problemId: string, formData: FormData) {
+  const session = await getSession(sessionId);
+  if (!session || session.problemId !== problemId || !session.endedAt) return;
+  await saveNote(sessionId, problemId, 'next_step', formData, false);
 }

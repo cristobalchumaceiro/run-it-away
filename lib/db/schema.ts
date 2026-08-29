@@ -5,6 +5,7 @@ export const problemStatus = pgEnum('problem_status', ['open', 'solved']);
 export const sessionTrigger = pgEnum('session_trigger', ['manual', 'tracker']);
 export const activityKind = pgEnum('activity_kind', ['run', 'walk', 'cycle', 'race']);
 export const promptState = pgEnum('prompt_state', ['pending', 'accepted', 'declined', 'swapped']);
+export const noteKind = pgEnum('note_kind', ['voice', 'text', 'next_step']);
 
 export const problems = pgTable('problems', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -25,6 +26,18 @@ export const sessions = pgTable('sessions', {
   startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
   endedAt: timestamp('ended_at', { withTimezone: true }),
   transcript: jsonb('transcript')
+});
+
+export const notes = pgTable('notes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  problemId: uuid('problem_id')
+    .notNull()
+    .references(() => problems.id, { onDelete: 'cascade' }),
+  sessionId: uuid('session_id').references(() => sessions.id, { onDelete: 'cascade' }),
+  kind: noteKind('kind').notNull(),
+  body: text('body').notNull(),
+  uncertain: boolean('uncertain').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
 
 export const activities = pgTable('activities', {
@@ -57,14 +70,16 @@ export const prompts = pgTable(
 
 export const problemsRelations = relations(problems, ({ many }) => ({
   sessions: many(sessions),
-  prompts: many(prompts)
+  prompts: many(prompts),
+  notes: many(notes)
 }));
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   problem: one(problems, {
     fields: [sessions.problemId],
     references: [problems.id]
-  })
+  }),
+  notes: many(notes)
 }));
 
 export const activitiesRelations = relations(activities, ({ many }) => ({
@@ -82,7 +97,19 @@ export const promptsRelations = relations(prompts, ({ one }) => ({
   })
 }));
 
+export const notesRelations = relations(notes, ({ one }) => ({
+  problem: one(problems, {
+    fields: [notes.problemId],
+    references: [problems.id]
+  }),
+  session: one(sessions, {
+    fields: [notes.sessionId],
+    references: [sessions.id]
+  })
+}));
+
 export type ProblemRow = typeof problems.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type ActivityRow = typeof activities.$inferSelect;
 export type PromptRow = typeof prompts.$inferSelect;
+export type NoteRow = typeof notes.$inferSelect;

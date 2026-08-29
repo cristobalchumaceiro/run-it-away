@@ -5,10 +5,12 @@ import { selectProblemForRun as selectProblemForRunPure, type ProblemSelection }
 import { seedProblems, seedSessions } from './seed-data';
 import {
   activities,
+  notes,
   problems,
   prompts,
   sessions,
   type ActivityRow,
+  type NoteRow,
   type ProblemRow,
   type PromptRow,
   type SessionRow
@@ -35,11 +37,20 @@ export type NewPrompt = {
   problemId: string;
 };
 
+export type NewNote = {
+  problemId: string;
+  sessionId?: string | null;
+  kind: NoteRow['kind'];
+  body: string;
+  uncertain?: boolean;
+};
+
 export type ProblemRepository = {
   listProblems: () => Promise<ProblemRow[]>;
   getProblem: (id: string) => Promise<ProblemRow | undefined>;
   createProblem: (problem: NewProblem) => Promise<ProblemRow>;
   listSessions: () => Promise<SessionRow[]>;
+  getSession: (id: string) => Promise<SessionRow | undefined>;
   listSessionsForProblem: (problemId: string) => Promise<SessionRow[]>;
   createSession: (session: NewSession) => Promise<SessionRow>;
   setProblemPinned: (problemId: string, pinned: boolean) => Promise<ProblemRow | undefined>;
@@ -51,6 +62,10 @@ export type ProblemRepository = {
   listPromptsForActivity: (activityId: string) => Promise<PromptRow[]>;
   latestPendingPrompt: () => Promise<PromptRow | undefined>;
   updatePromptState: (id: string, state: PromptRow['state']) => Promise<PromptRow | undefined>;
+  createNote: (note: NewNote) => Promise<NoteRow>;
+  listNotesForSession: (sessionId: string) => Promise<NoteRow[]>;
+  listNotesForProblem: (problemId: string) => Promise<NoteRow[]>;
+  endSession: (sessionId: string) => Promise<SessionRow | undefined>;
 };
 
 type MemoryState = {
@@ -58,6 +73,7 @@ type MemoryState = {
   sessions: SessionRow[];
   activities: ActivityRow[];
   prompts: PromptRow[];
+  notes: NoteRow[];
 };
 
 declare global {
@@ -92,6 +108,13 @@ function clonePrompt(prompt: PromptRow): PromptRow {
   };
 }
 
+function cloneNote(note: NoteRow): NoteRow {
+  return {
+    ...note,
+    createdAt: new Date(note.createdAt)
+  };
+}
+
 function createMemoryRepository(): ProblemRepository {
   const memoryState =
     globalThis.runItAwayMemoryState ??
@@ -99,9 +122,17 @@ function createMemoryRepository(): ProblemRepository {
       problems: seedProblems.map(cloneProblem),
       sessions: seedSessions.map(cloneSession),
       activities: [],
-      prompts: []
+      prompts: [],
+      notes: []
     });
-  const { problems: memoryProblems, sessions: memorySessions, activities: memoryActivities, prompts: memoryPrompts } = memoryState;
+  memoryState.notes ??= [];
+  const {
+    problems: memoryProblems,
+    sessions: memorySessions,
+    activities: memoryActivities,
+    prompts: memoryPrompts,
+    notes: memoryNotes
+  } = memoryState;
 
   const listProblems = async () =>
     memoryProblems
@@ -131,6 +162,10 @@ function createMemoryRepository(): ProblemRepository {
       .slice()
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
       .map(cloneSession);
+  const getSession = async (id: string) => {
+    const session = memorySessions.find((item) => item.id === id);
+    return session ? cloneSession(session) : undefined;
+  };
   const listSessionsForProblem = async (problemId: string) =>
     memorySessions
       .filter((session) => session.problemId === problemId)
@@ -211,12 +246,42 @@ function createMemoryRepository(): ProblemRepository {
     prompt.respondedAt = state === 'pending' ? null : new Date();
     return clonePrompt(prompt);
   };
+  const createNote = async ({ problemId, sessionId, kind, body, uncertain }: NewNote) => {
+    const note: NoteRow = {
+      id: crypto.randomUUID(),
+      problemId,
+      sessionId: sessionId ?? null,
+      kind,
+      body,
+      uncertain: uncertain ?? false,
+      createdAt: new Date()
+    };
+    memoryNotes.unshift(note);
+    return cloneNote(note);
+  };
+  const listNotesForSession = async (sessionId: string) =>
+    memoryNotes
+      .filter((note) => note.sessionId === sessionId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(cloneNote);
+  const listNotesForProblem = async (problemId: string) =>
+    memoryNotes
+      .filter((note) => note.problemId === problemId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map(cloneNote);
+  const endSession = async (sessionId: string) => {
+    const session = memorySessions.find((item) => item.id === sessionId);
+    if (!session) return undefined;
+    session.endedAt = new Date();
+    return cloneSession(session);
+  };
 
   return {
     listProblems,
     getProblem,
     createProblem,
     listSessions,
+    getSession,
     listSessionsForProblem,
     createSession,
     setProblemPinned,
@@ -227,13 +292,17 @@ function createMemoryRepository(): ProblemRepository {
     getPrompt,
     listPromptsForActivity,
     latestPendingPrompt,
-    updatePromptState
+    updatePromptState,
+    createNote,
+    listNotesForSession,
+    listNotesForProblem,
+    endSession
   };
 }
 
 function createNeonRepository(databaseUrl: string): ProblemRepository {
   const sql = neon(databaseUrl);
-  const db = drizzle(sql, { schema: { activities, problems, prompts, sessions } });
+  const db = drizzle(sql, { schema: { activities, notes, problems, prompts, sessions } });
 
   const listProblems = () => db.select().from(problems).orderBy(desc(problems.createdAt));
   const getProblem = async (id: string) => {
@@ -248,6 +317,10 @@ function createNeonRepository(databaseUrl: string): ProblemRepository {
     return rows[0];
   };
   const listSessions = () => db.select().from(sessions).orderBy(desc(sessions.startedAt));
+  const getSession = async (id: string) => {
+    const rows = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+    return rows[0];
+  };
   const listSessionsForProblem = (problemId: string) =>
     db
       .select()
@@ -315,12 +388,32 @@ function createNeonRepository(databaseUrl: string): ProblemRepository {
       .returning();
     return rows[0];
   };
+  const createNote = async ({ problemId, sessionId, kind, body, uncertain }: NewNote) => {
+    const rows = await db
+      .insert(notes)
+      .values({ problemId, sessionId: sessionId ?? null, kind, body, uncertain: uncertain ?? false })
+      .returning();
+    return rows[0];
+  };
+  const listNotesForSession = (sessionId: string) =>
+    db.select().from(notes).where(eq(notes.sessionId, sessionId)).orderBy(desc(notes.createdAt));
+  const listNotesForProblem = (problemId: string) =>
+    db.select().from(notes).where(eq(notes.problemId, problemId)).orderBy(notes.createdAt);
+  const endSession = async (sessionId: string) => {
+    const rows = await db
+      .update(sessions)
+      .set({ endedAt: new Date() })
+      .where(eq(sessions.id, sessionId))
+      .returning();
+    return rows[0];
+  };
 
   return {
     listProblems,
     getProblem,
     createProblem,
     listSessions,
+    getSession,
     listSessionsForProblem,
     createSession,
     setProblemPinned,
@@ -331,7 +424,11 @@ function createNeonRepository(databaseUrl: string): ProblemRepository {
     getPrompt,
     listPromptsForActivity,
     latestPendingPrompt,
-    updatePromptState
+    updatePromptState,
+    createNote,
+    listNotesForSession,
+    listNotesForProblem,
+    endSession
   };
 }
 
@@ -345,6 +442,7 @@ export const {
   getProblem,
   createProblem,
   listSessions,
+  getSession,
   listSessionsForProblem,
   createSession,
   setProblemPinned,
@@ -355,5 +453,9 @@ export const {
   getPrompt,
   listPromptsForActivity,
   latestPendingPrompt,
-  updatePromptState
+  updatePromptState,
+  createNote,
+  listNotesForSession,
+  listNotesForProblem,
+  endSession
 } = repository;

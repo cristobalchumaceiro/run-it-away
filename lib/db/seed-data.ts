@@ -20,6 +20,7 @@ Last useful clue from the logs:
 
 The runner has 2 vCPU / 7 GB. We started parallelizing the contract tests last week. Could be a leaked container or the service health check racing the test setup. Need to compare the job's container list before and after the retry, and check whether the cleanup step runs when pytest is killed.`,
     status: 'open',
+    pinned: false,
     createdAt: daysAgo(2, 9, 15),
     updatedAt: daysAgo(1, 16, 40)
   },
@@ -36,6 +37,7 @@ Constraints:
 
 The real question is whether this is an operational boundary or just an ugly function boundary. Maybe first move the queue consumer behind an internal interface and measure the actual failure modes for two weeks.`,
     status: 'open',
+    pinned: false,
     createdAt: daysAgo(7, 13, 5),
     updatedAt: daysAgo(4, 11, 20)
   },
@@ -52,6 +54,7 @@ EXPLAIN starts like this:
 
 There is an index on (occurred_at), but not account_id first. The migration also changed occurred_at from timestamp to timestamptz. Need to check stats freshness, compare the old query plan, and test a partial composite index before touching the report code.`,
     status: 'solved',
+    pinned: false,
     createdAt: daysAgo(14, 8, 30),
     updatedAt: daysAgo(10, 17, 10)
   }
@@ -61,6 +64,7 @@ export const seedSessions: SessionRow[] = [
   {
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     problemId: '33333333-3333-4333-8333-333333333333',
+    trigger: 'manual',
     startedAt: daysAgo(14, 12, 0),
     endedAt: daysAgo(14, 12, 28),
     transcript: { note: 'Compared the old and new plans; the planner stopped using the account filter.' }
@@ -68,6 +72,7 @@ export const seedSessions: SessionRow[] = [
   {
     id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     problemId: '33333333-3333-4333-8333-333333333333',
+    trigger: 'manual',
     startedAt: daysAgo(12, 7, 45),
     endedAt: daysAgo(12, 8, 5),
     transcript: { note: 'Tested a composite index locally. Runtime dropped below 11 seconds.' }

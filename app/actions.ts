@@ -128,5 +128,7 @@ export async function saveTextNote(sessionId: string, problemId: string, formDat
 }
 
 export async function saveNextStep(sessionId: string, problemId: string, formData: FormData) {
+  const session = await getSession(sessionId);
+  if (!session || session.problemId !== problemId || !session.endedAt) return;
   await saveNote(sessionId, problemId, 'next_step', formData, false);
 }

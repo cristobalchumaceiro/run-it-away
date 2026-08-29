@@ -11,6 +11,11 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
   const [interimText, setInterimText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [fallbackText, setFallbackText] = useState('');
+  const [fallbackHasDictation, setFallbackHasDictation] = useState(false);
+  const finalTextRef = useRef('');
+  const interimTextRef = useRef('');
+  const interimResultsRef = useRef(new Map<number, string>());
+  const promotedInterimRef = useRef(new Map<number, string>());
 
   useEffect(() => {
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -21,15 +26,39 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.onresult = (event) => {
-      let nextInterim = '';
+      const nextInterimResults = new Map<number, string>();
       let nextFinal = '';
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
         const transcript = result[0]?.transcript ?? '';
-        if (result.isFinal) nextFinal += transcript;
-        else nextInterim += transcript;
+        if (result.isFinal) {
+          const promoted = promotedInterimRef.current.get(index);
+          if (promoted === undefined) {
+            nextFinal += transcript;
+          } else {
+            setFinalText((current) => {
+              const updated = current.endsWith(promoted)
+                ? `${current.slice(0, -promoted.length)}${transcript}`
+                : `${current}${transcript}`;
+              finalTextRef.current = updated;
+              return updated;
+            });
+            promotedInterimRef.current.delete(index);
+          }
+        } else {
+          nextInterimResults.set(index, transcript);
+        }
       }
-      if (nextFinal) setFinalText((current) => current + nextFinal);
+      interimResultsRef.current = nextInterimResults;
+      const nextInterim = Array.from(nextInterimResults.values()).join('');
+      interimTextRef.current = nextInterim;
+      if (nextFinal) {
+        setFinalText((current) => {
+          const updated = current + nextFinal;
+          finalTextRef.current = updated;
+          return updated;
+        });
+      }
       setInterimText(nextInterim);
     };
     recognition.onerror = (event) => {
@@ -43,9 +72,18 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
             : 'Speech recognition is unavailable.'
           : "It didn't catch anything. Tap to try again."
       );
-      if (permanent) setSupported(false);
+      promoteInterim();
+      if (permanent) {
+        const captured = `${finalTextRef.current}${interimTextRef.current}`;
+        setFallbackText((current) => current || captured);
+        setFallbackHasDictation(Boolean(captured));
+        setSupported(false);
+      }
     };
-    recognition.onend = () => setListening(false);
+    recognition.onend = () => {
+      setListening(false);
+      promoteInterim();
+    };
     recognitionRef.current = recognition;
 
     return () => {
@@ -73,13 +111,29 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
     }
   }
 
+  function promoteInterim() {
+    const pendingResults = interimResultsRef.current;
+    if (!pendingResults.size) return;
+    const pendingText = Array.from(pendingResults.values()).join('');
+    finalTextRef.current = `${finalTextRef.current}${pendingText}`;
+    setFinalText(finalTextRef.current);
+    promotedInterimRef.current = new Map(pendingResults);
+    interimResultsRef.current = new Map();
+    interimTextRef.current = '';
+    setInterimText('');
+  }
+
   if (supported === false) {
+    const fallbackAction = fallbackHasDictation
+      ? saveVoiceNote.bind(null, sessionId, problemId)
+      : saveTextNote.bind(null, sessionId, problemId);
     return (
       <div className="mt-6 rounded-2xl border border-orange-300/25 bg-orange-300/[0.07] p-4">
         <p className="text-sm leading-6 text-orange-100">
           {error ?? 'Speech recognition is not supported in this browser.'} You can still capture the thought by typing.
         </p>
-        <form action={saveTextNote.bind(null, sessionId, problemId)}>
+        {fallbackHasDictation ? <p className="mt-3 text-sm leading-6 text-orange-100/75">Speech recognition may have misheard this.</p> : null}
+        <form action={fallbackAction}>
           <textarea
             name="body"
             value={fallbackText}

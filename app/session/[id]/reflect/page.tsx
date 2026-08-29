@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { saveNextStep } from '@/app/actions';
 import { getProblem, getSession } from '@/lib/db';
 
@@ -13,6 +13,7 @@ export default async function ReflectPage({
 }) {
   const session = await getSession(params.id);
   if (!session) notFound();
+  if (!session.endedAt) redirect(`/session/${session.id}`);
   const problem = await getProblem(session.problemId);
   if (!problem) notFound();
 

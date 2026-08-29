@@ -72,3 +72,26 @@ test('does not mutate problems or sessions', () => {
   assert.deepEqual(problems, originalProblems);
   assert.deepEqual(sessions, originalSessions);
 });
+
+test('skips excluded problems', () => {
+  const excluded = problem('excluded', '2025-01-01T00:00:00Z');
+  const available = problem('available', '2025-01-02T00:00:00Z');
+
+  const selection = selectProblemForRun([excluded, available], [], ['excluded']);
+
+  assert.equal(selection?.problem.id, 'available');
+});
+
+test('returns null when the only candidate is excluded', () => {
+  assert.equal(selectProblemForRun([problem('only', '2025-01-01T00:00:00Z')], [], ['only']), null);
+});
+
+test('excluding the pinned candidate falls back to neglected selection', () => {
+  const pinned = problem('pinned', '2025-01-02T00:00:00Z', true);
+  const neglected = problem('neglected', '2025-01-01T00:00:00Z');
+
+  const selection = selectProblemForRun([pinned, neglected], [], ['pinned']);
+
+  assert.equal(selection?.problem.id, 'neglected');
+  assert.equal(selection?.reason, 'neglected');
+});

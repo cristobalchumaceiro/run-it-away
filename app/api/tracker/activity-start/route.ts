@@ -1,4 +1,4 @@
-import { createSession, selectProblemForRun } from '@/lib/db';
+import { startActivity, type ActivityKind } from '@/lib/activity';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -7,12 +7,14 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function getStartedAt(value: unknown): Date {
-  if (isObject(value) && typeof value.startedAt === 'string') {
-    const parsed = new Date(value.startedAt);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
-  return new Date();
+function isActivityKind(value: unknown): value is ActivityKind {
+  return value === 'run' || value === 'walk' || value === 'cycle' || value === 'race';
+}
+
+function getStartedAt(value: unknown): Date | undefined {
+  if (!isObject(value) || typeof value.startedAt !== 'string') return undefined;
+  const parsed = new Date(value.startedAt);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export async function POST(request: Request) {
@@ -23,21 +25,12 @@ export async function POST(request: Request) {
     body = null;
   }
 
-  const selection = await selectProblemForRun();
-  if (!selection) {
-    return NextResponse.json({ prompted: false, reason: 'no-open-problems' });
+  const kindValue = isObject(body) ? body.kind : undefined;
+  const kind = kindValue === undefined ? 'run' : kindValue;
+  if (!isActivityKind(kind)) {
+    return NextResponse.json({ error: 'Unrecognized activity kind' }, { status: 400 });
   }
 
-  const session = await createSession({
-    problemId: selection.problem.id,
-    trigger: 'tracker',
-    startedAt: getStartedAt(body)
-  });
-
-  return NextResponse.json({
-    prompted: true,
-    problem: { id: selection.problem.id, title: selection.problem.title },
-    reason: selection.reason,
-    sessionId: session.id
-  });
+  const result = await startActivity({ kind, startedAt: getStartedAt(body) });
+  return NextResponse.json(result);
 }

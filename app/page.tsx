@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { selectProblemForRun, listProblems } from '@/lib/db';
+import { getActivity, getProblem, latestPendingPrompt, selectProblemForRun, listProblems } from '@/lib/db';
 import { ProblemCard } from '@/components/problem-card';
 import { QuickCapture } from '@/components/quick-capture';
 import { startThinkingSession } from '@/app/actions';
+import { ActivityPrompt } from '@/components/activity-prompt';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,9 @@ export default async function Home({
 }) {
   const problems = await listProblems();
   const selection = await selectProblemForRun();
+  const pendingPrompt = await latestPendingPrompt();
+  const pendingActivity = pendingPrompt ? await getActivity(pendingPrompt.activityId) : undefined;
+  const pendingProblem = pendingPrompt ? await getProblem(pendingPrompt.problemId) : undefined;
   const saved = typeof searchParams.saved === 'string' && searchParams.saved.length > 0;
 
   return (
@@ -29,7 +33,17 @@ export default async function Home({
           <span className="hidden text-right text-xs uppercase tracking-[0.16em] text-white/35 sm:block">
             Capture first.<br />Solve later.
           </span>
+          <Link
+            href="/tracker"
+            className="inline-flex min-h-11 items-center rounded-full border border-white/15 px-3 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-white/55 transition hover:border-lime-300/50 hover:text-lime-200 focus:outline-none focus:ring-2 focus:ring-lime-300 sm:px-4 sm:text-xs"
+          >
+            Simulated tracker
+          </Link>
         </header>
+
+        {pendingPrompt && pendingActivity && pendingProblem ? (
+          <ActivityPrompt prompt={pendingPrompt} activity={pendingActivity} problem={pendingProblem} />
+        ) : null}
 
         <section className="mb-10">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-lime-300">Before the run</p>
@@ -107,7 +121,7 @@ export default async function Home({
         </section>
 
         <footer className="mt-14 border-t border-white/10 pt-5 text-xs leading-5 text-white/35">
-          Iteration 1: capture the problem first. The live session is coming next.
+          Activity detection is simulated in this demo; a web app cannot observe a phone or watch starting a workout.
         </footer>
       </div>
     </main>

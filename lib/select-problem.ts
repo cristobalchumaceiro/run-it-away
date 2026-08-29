@@ -18,9 +18,11 @@ export type ProblemSelection<T> = {
 
 export function selectProblemForRun<T extends SelectableProblem>(
   problems: T[],
-  sessions: SessionTouch[]
+  sessions: SessionTouch[],
+  excludeProblemIds: readonly string[] = []
 ): ProblemSelection<T> | null {
-  const openProblems = problems.filter((problem) => problem.status === 'open');
+  const excludedIds = new Set(excludeProblemIds);
+  const openProblems = problems.filter((problem) => problem.status === 'open' && !excludedIds.has(problem.id));
   if (openProblems.length === 0) return null;
 
   const pinnedProblems = openProblems.filter((problem) => problem.pinned);

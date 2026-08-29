@@ -1,9 +1,18 @@
 import { neon } from '@neondatabase/serverless';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { selectProblemForRun as selectProblemForRunPure, type ProblemSelection } from '../select-problem';
 import { seedProblems, seedSessions } from './seed-data';
-import { problems, sessions, type ProblemRow, type SessionRow } from './schema';
+import {
+  activities,
+  problems,
+  prompts,
+  sessions,
+  type ActivityRow,
+  type ProblemRow,
+  type PromptRow,
+  type SessionRow
+} from './schema';
 
 export type NewProblem = {
   title: string;
@@ -16,6 +25,16 @@ export type NewSession = {
   startedAt?: Date;
 };
 
+export type NewActivity = {
+  kind: ActivityRow['kind'];
+  startedAt: Date;
+};
+
+export type NewPrompt = {
+  activityId: string;
+  problemId: string;
+};
+
 export type ProblemRepository = {
   listProblems: () => Promise<ProblemRow[]>;
   getProblem: (id: string) => Promise<ProblemRow | undefined>;
@@ -24,8 +43,26 @@ export type ProblemRepository = {
   listSessionsForProblem: (problemId: string) => Promise<SessionRow[]>;
   createSession: (session: NewSession) => Promise<SessionRow>;
   setProblemPinned: (problemId: string, pinned: boolean) => Promise<ProblemRow | undefined>;
-  selectProblemForRun: () => Promise<ProblemSelection<ProblemRow> | null>;
+  selectProblemForRun: (excludeProblemIds?: readonly string[]) => Promise<ProblemSelection<ProblemRow> | null>;
+  createActivity: (activity: NewActivity) => Promise<ActivityRow>;
+  getActivity: (id: string) => Promise<ActivityRow | undefined>;
+  createPrompt: (prompt: NewPrompt) => Promise<PromptRow>;
+  getPrompt: (id: string) => Promise<PromptRow | undefined>;
+  listPromptsForActivity: (activityId: string) => Promise<PromptRow[]>;
+  latestPendingPrompt: () => Promise<PromptRow | undefined>;
+  updatePromptState: (id: string, state: PromptRow['state']) => Promise<PromptRow | undefined>;
 };
+
+type MemoryState = {
+  problems: ProblemRow[];
+  sessions: SessionRow[];
+  activities: ActivityRow[];
+  prompts: PromptRow[];
+};
+
+declare global {
+  var runItAwayMemoryState: MemoryState | undefined;
+}
 
 function cloneProblem(problem: ProblemRow): ProblemRow {
   return { ...problem, createdAt: new Date(problem.createdAt), updatedAt: new Date(problem.updatedAt) };
@@ -39,9 +76,32 @@ function cloneSession(session: SessionRow): SessionRow {
   };
 }
 
+function cloneActivity(activity: ActivityRow): ActivityRow {
+  return {
+    ...activity,
+    startedAt: new Date(activity.startedAt),
+    createdAt: new Date(activity.createdAt)
+  };
+}
+
+function clonePrompt(prompt: PromptRow): PromptRow {
+  return {
+    ...prompt,
+    createdAt: new Date(prompt.createdAt),
+    respondedAt: prompt.respondedAt ? new Date(prompt.respondedAt) : null
+  };
+}
+
 function createMemoryRepository(): ProblemRepository {
-  const memoryProblems = seedProblems.map(cloneProblem);
-  const memorySessions = seedSessions.map(cloneSession);
+  const memoryState =
+    globalThis.runItAwayMemoryState ??
+    (globalThis.runItAwayMemoryState = {
+      problems: seedProblems.map(cloneProblem),
+      sessions: seedSessions.map(cloneSession),
+      activities: [],
+      prompts: []
+    });
+  const { problems: memoryProblems, sessions: memorySessions, activities: memoryActivities, prompts: memoryPrompts } = memoryState;
 
   const listProblems = async () =>
     memoryProblems
@@ -95,9 +155,61 @@ function createMemoryRepository(): ProblemRepository {
     problem.updatedAt = new Date();
     return cloneProblem(problem);
   };
-  const selectProblemForRun = async () => {
+  const selectProblemForRun = async (excludeProblemIds: readonly string[] = []) => {
     const [allProblems, allSessions] = await Promise.all([listProblems(), listSessions()]);
-    return selectProblemForRunPure(allProblems, allSessions);
+    return selectProblemForRunPure(allProblems, allSessions, excludeProblemIds);
+  };
+  const createActivity = async ({ kind, startedAt }: NewActivity) => {
+    const activity: ActivityRow = {
+      id: crypto.randomUUID(),
+      kind,
+      startedAt,
+      createdAt: new Date()
+    };
+    memoryActivities.unshift(activity);
+    return cloneActivity(activity);
+  };
+  const getActivity = async (id: string) => {
+    const activity = memoryActivities.find((item) => item.id === id);
+    return activity ? cloneActivity(activity) : undefined;
+  };
+  const createPrompt = async ({ activityId, problemId }: NewPrompt) => {
+    const existing = memoryPrompts.find(
+      (prompt) => prompt.activityId === activityId && (prompt.state === 'pending' || prompt.state === 'accepted')
+    );
+    if (existing) return clonePrompt(existing);
+
+    const prompt: PromptRow = {
+      id: crypto.randomUUID(),
+      activityId,
+      problemId,
+      state: 'pending',
+      createdAt: new Date(),
+      respondedAt: null
+    };
+    memoryPrompts.unshift(prompt);
+    return clonePrompt(prompt);
+  };
+  const getPrompt = async (id: string) => {
+    const prompt = memoryPrompts.find((item) => item.id === id);
+    return prompt ? clonePrompt(prompt) : undefined;
+  };
+  const listPromptsForActivity = async (activityId: string) =>
+    memoryPrompts
+      .filter((prompt) => prompt.activityId === activityId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(clonePrompt);
+  const latestPendingPrompt = async () =>
+    memoryPrompts
+      .filter((prompt) => prompt.state === 'pending')
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(clonePrompt)[0];
+  const updatePromptState = async (id: string, state: PromptRow['state']) => {
+    const prompt = memoryPrompts.find((item) => item.id === id);
+    if (!prompt) return undefined;
+    prompt.state = state;
+    prompt.respondedAt = state === 'pending' ? null : new Date();
+    return clonePrompt(prompt);
   };
 
   return {
@@ -108,13 +220,20 @@ function createMemoryRepository(): ProblemRepository {
     listSessionsForProblem,
     createSession,
     setProblemPinned,
-    selectProblemForRun
+    selectProblemForRun,
+    createActivity,
+    getActivity,
+    createPrompt,
+    getPrompt,
+    listPromptsForActivity,
+    latestPendingPrompt,
+    updatePromptState
   };
 }
 
 function createNeonRepository(databaseUrl: string): ProblemRepository {
   const sql = neon(databaseUrl);
-  const db = drizzle(sql, { schema: { problems, sessions } });
+  const db = drizzle(sql, { schema: { activities, problems, prompts, sessions } });
 
   const listProblems = () => db.select().from(problems).orderBy(desc(problems.createdAt));
   const getProblem = async (id: string) => {
@@ -150,9 +269,51 @@ function createNeonRepository(databaseUrl: string): ProblemRepository {
       .returning();
     return rows[0];
   };
-  const selectProblemForRun = async () => {
+  const selectProblemForRun = async (excludeProblemIds: readonly string[] = []) => {
     const [allProblems, allSessions] = await Promise.all([listProblems(), listSessions()]);
-    return selectProblemForRunPure(allProblems, allSessions);
+    return selectProblemForRunPure(allProblems, allSessions, excludeProblemIds);
+  };
+  const createActivity = async ({ kind, startedAt }: NewActivity) => {
+    const rows = await db.insert(activities).values({ kind, startedAt }).returning();
+    return rows[0];
+  };
+  const getActivity = async (id: string) => {
+    const rows = await db.select().from(activities).where(eq(activities.id, id)).limit(1);
+    return rows[0];
+  };
+  const createPrompt = async ({ activityId, problemId }: NewPrompt) => {
+    const existing = await db
+      .select()
+      .from(prompts)
+      .where(and(eq(prompts.activityId, activityId), inArray(prompts.state, ['pending', 'accepted'])))
+      .limit(1);
+    if (existing[0]) return existing[0];
+
+    const rows = await db.insert(prompts).values({ activityId, problemId }).returning();
+    return rows[0];
+  };
+  const getPrompt = async (id: string) => {
+    const rows = await db.select().from(prompts).where(eq(prompts.id, id)).limit(1);
+    return rows[0];
+  };
+  const listPromptsForActivity = (activityId: string) =>
+    db.select().from(prompts).where(eq(prompts.activityId, activityId)).orderBy(desc(prompts.createdAt));
+  const latestPendingPrompt = async () => {
+    const rows = await db
+      .select()
+      .from(prompts)
+      .where(eq(prompts.state, 'pending'))
+      .orderBy(desc(prompts.createdAt))
+      .limit(1);
+    return rows[0];
+  };
+  const updatePromptState = async (id: string, state: PromptRow['state']) => {
+    const rows = await db
+      .update(prompts)
+      .set({ state, respondedAt: state === 'pending' ? null : new Date() })
+      .where(eq(prompts.id, id))
+      .returning();
+    return rows[0];
   };
 
   return {
@@ -163,7 +324,14 @@ function createNeonRepository(databaseUrl: string): ProblemRepository {
     listSessionsForProblem,
     createSession,
     setProblemPinned,
-    selectProblemForRun
+    selectProblemForRun,
+    createActivity,
+    getActivity,
+    createPrompt,
+    getPrompt,
+    listPromptsForActivity,
+    latestPendingPrompt,
+    updatePromptState
   };
 }
 
@@ -180,5 +348,12 @@ export const {
   listSessionsForProblem,
   createSession,
   setProblemPinned,
-  selectProblemForRun
+  selectProblemForRun,
+  createActivity,
+  getActivity,
+  createPrompt,
+  getPrompt,
+  listPromptsForActivity,
+  latestPendingPrompt,
+  updatePromptState
 } = repository;

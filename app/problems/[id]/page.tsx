@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { startThinkingSession, toggleProblemPinned } from '@/app/actions';
-import { getProblem, listSessionsForProblem } from '@/lib/db';
+import { getProblem, listNotesForSession, listSessionsForProblem } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,11 +22,20 @@ function getTranscriptText(transcript: unknown): string | null {
   return null;
 }
 
+function formatDuration(startedAt: Date, endedAt: Date | null) {
+  if (!endedAt) return 'Still in progress';
+  const minutes = Math.floor(Math.max(0, endedAt.getTime() - startedAt.getTime()) / 60000);
+  return minutes === 0 ? 'Less than a minute' : `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
 export default async function ProblemHub({ params }: { params: { id: string } }) {
   const problem = await getProblem(params.id);
   if (!problem) notFound();
 
   const sessions = await listSessionsForProblem(problem.id);
+  const sessionsWithNotes = await Promise.all(
+    sessions.map(async (session) => ({ session, notes: await listNotesForSession(session.id) }))
+  );
   const solved = problem.status === 'solved';
 
   return (
@@ -96,21 +105,34 @@ export default async function ProblemHub({ params }: { params: { id: string } })
             </div>
             {sessions.length ? (
               <div className="mt-5 space-y-3">
-                {sessions.map((session) => {
+                {sessionsWithNotes.map(({ session, notes }) => {
                   const transcript = getTranscriptText(session.transcript);
+                  const nextStep = notes.find((note) => note.kind === 'next_step');
+                  const otherNotes = notes.filter((note) => note.kind !== 'next_step');
 
                   return (
                     <div key={session.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-                      <div className="flex flex-wrap justify-between gap-2 text-sm">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-paper">{formatTimestamp(session.startedAt)}</span>
-                          <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
-                            {session.trigger === 'tracker' ? 'Tracker' : 'Manual'}
-                          </span>
-                        </div>
-                        <span className="text-white/40">{session.endedAt ? `Ended ${formatTimestamp(session.endedAt)}` : 'In progress'}</span>
-                      </div>
-                      {transcript !== null ? <p className="mt-3 text-sm leading-6 text-white/55">{transcript}</p> : null}
+                      <p className="text-sm leading-6 text-white/55">
+                        On {formatTimestamp(session.startedAt)}, you took this problem for a{' '}
+                        <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65">
+                          {session.trigger === 'tracker' ? 'Tracker' : 'Manual'}
+                        </span>{' '}
+                        session. {formatDuration(session.startedAt, session.endedAt)}.
+                      </p>
+                      {nextStep ? (
+                        <p className="mt-4 text-base leading-7 text-paper">
+                          <span className="font-bold text-lime-300">Next step:</span> {nextStep.body}
+                        </p>
+                      ) : null}
+                      {otherNotes.map((note) => (
+                        <p key={note.id} className="mt-3 text-sm leading-6 text-white/65">
+                          <span className="font-semibold text-white/80">
+                            {note.kind === 'voice' ? 'You said (may be misheard):' : 'You noted:'}
+                          </span>{' '}
+                          {note.body}
+                        </p>
+                      ))}
+                      {transcript !== null ? <p className="mt-3 text-sm leading-6 text-white/55">Earlier note: {transcript}</p> : null}
                     </div>
                   );
                 })}

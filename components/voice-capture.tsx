@@ -14,8 +14,6 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
   const [fallbackHasDictation, setFallbackHasDictation] = useState(false);
   const finalTextRef = useRef('');
   const interimTextRef = useRef('');
-  const interimResultsRef = useRef(new Map<number, string>());
-  const promotedInterimRef = useRef(new Map<number, string>());
 
   useEffect(() => {
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -26,31 +24,14 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.onresult = (event) => {
-      const nextInterimResults = new Map<number, string>();
+      let nextInterim = '';
       let nextFinal = '';
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
         const transcript = result[0]?.transcript ?? '';
-        if (result.isFinal) {
-          const promoted = promotedInterimRef.current.get(index);
-          if (promoted === undefined) {
-            nextFinal += transcript;
-          } else {
-            setFinalText((current) => {
-              const updated = current.endsWith(promoted)
-                ? `${current.slice(0, -promoted.length)}${transcript}`
-                : `${current}${transcript}`;
-              finalTextRef.current = updated;
-              return updated;
-            });
-            promotedInterimRef.current.delete(index);
-          }
-        } else {
-          nextInterimResults.set(index, transcript);
-        }
+        if (result.isFinal) nextFinal += transcript;
+        else nextInterim += transcript;
       }
-      interimResultsRef.current = nextInterimResults;
-      const nextInterim = Array.from(nextInterimResults.values()).join('');
       interimTextRef.current = nextInterim;
       if (nextFinal) {
         setFinalText((current) => {
@@ -112,13 +93,10 @@ export function VoiceCapture({ sessionId, problemId }: { sessionId: string; prob
   }
 
   function promoteInterim() {
-    const pendingResults = interimResultsRef.current;
-    if (!pendingResults.size) return;
-    const pendingText = Array.from(pendingResults.values()).join('');
+    const pendingText = interimTextRef.current;
+    if (!pendingText) return;
     finalTextRef.current = `${finalTextRef.current}${pendingText}`;
     setFinalText(finalTextRef.current);
-    promotedInterimRef.current = new Map(pendingResults);
-    interimResultsRef.current = new Map();
     interimTextRef.current = '';
     setInterimText('');
   }

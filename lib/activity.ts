@@ -1,6 +1,8 @@
 import {
   createActivity,
   createPrompt,
+  getProblem,
+  latestPendingPrompt,
   selectProblemForRun
 } from '@/lib/db';
 import type { ActivityRow } from '@/lib/db/schema';
@@ -28,6 +30,20 @@ export async function startActivity(input: {
 
   if (input.kind === 'race') {
     return { prompted: false, activityId: activity.id, reason: 'race' };
+  }
+
+  const pendingPrompt = await latestPendingPrompt();
+  if (pendingPrompt) {
+    const problem = await getProblem(pendingPrompt.problemId);
+    if (problem) {
+      return {
+        prompted: true,
+        activityId: activity.id,
+        promptId: pendingPrompt.id,
+        problem: { id: problem.id, title: problem.title },
+        reason: problem.pinned ? 'pinned' : 'neglected'
+      };
+    }
   }
 
   const selection = await selectProblemForRun();

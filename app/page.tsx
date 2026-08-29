@@ -11,7 +11,7 @@ export default async function Home({
   searchParams: { saved?: string; error?: string };
 }) {
   const problems = await listProblems();
-  const saved = searchParams.saved === '1';
+  const saved = typeof searchParams.saved === 'string' && searchParams.saved.length > 0;
 
   return (
     <main className="min-h-screen px-5 py-8 sm:px-8 sm:py-12">
@@ -44,7 +44,7 @@ export default async function Home({
             Saved. The problem is out of your head and in your inbox.
           </p>
         ) : null}
-        <QuickCapture error={searchParams.error} saved={saved} />
+        <QuickCapture error={searchParams.error} savedToken={searchParams.saved} />
 
         <section className="mt-12">
           <div className="mb-5 flex items-end justify-between gap-4">

@@ -1,8 +1,8 @@
 import { saveBrainDump } from '@/app/actions';
 
-export function QuickCapture({ error, saved }: { error?: string; saved?: boolean }) {
+export function QuickCapture({ error, savedToken }: { error?: string; savedToken?: string }) {
   return (
-    <form key={saved ? 'saved' : 'capture'} action={saveBrainDump} className="rounded-3xl border border-orange-200/15 bg-orange-300/[0.07] p-5 shadow-card sm:p-7">
+    <form key={savedToken ?? 'capture'} action={saveBrainDump} className="rounded-3xl border border-orange-200/15 bg-orange-300/[0.07] p-5 shadow-card sm:p-7">
       <div className="mb-6">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-300">Brain dump</p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-paper">Get it out of your head.</h2>

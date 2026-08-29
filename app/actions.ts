@@ -14,5 +14,5 @@ export async function saveBrainDump(formData: FormData) {
 
   await createProblem({ title, rawContext });
   revalidatePath('/');
-  redirect('/?saved=1');
+  redirect(`/?saved=${Date.now()}`);
 }

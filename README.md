@@ -190,3 +190,9 @@ npx tsx lib/db/seed.ts
 When `DATABASE_URL` is unset, the app uses the same demo problems and sessions
 from an in-memory repository. That fallback resets when a server process or
 serverless instance restarts; it is intended for demos, not persistence.
+
+### Voice agent
+
+Set `ELEVENLABS_AGENT_ID` and `ELEVENLABS_API_KEY` for the authenticated
+ElevenLabs agent. The server mints a WebRTC conversation token with the API key;
+the key never reaches the browser.

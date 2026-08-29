@@ -18,6 +18,18 @@ import { startActivity, type ActivityKind } from '@/lib/activity';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
+export type ConversationTokenResult =
+  | { ok: true; token: string }
+  | { ok: false; reason: 'unconfigured' | 'session' | 'auth' | 'network' };
+
+type ConversationTokenResponse = {
+  token: string;
+};
+
+function isConversationTokenResponse(value: unknown): value is ConversationTokenResponse {
+  return typeof value === 'object' && value !== null && 'token' in value && typeof value.token === 'string';
+}
+
 export async function saveBrainDump(formData: FormData) {
   const title = String(formData.get('title') ?? '').trim();
   const rawContext = String(formData.get('rawContext') ?? '').trim();
@@ -100,6 +112,43 @@ export async function endThinkingSession(sessionId: string, _formData: FormData)
   redirect(`/session/${sessionId}/reflect`);
 }
 
+export async function saveRunnerUtterance(sessionId: string, problemId: string, body: string) {
+  if (!body.trim()) return;
+  const session = await getSession(sessionId);
+  if (!session || session.problemId !== problemId) return;
+  await createNote({ problemId, sessionId, kind: 'voice', body, uncertain: true });
+  revalidatePath(`/session/${sessionId}`);
+  revalidatePath(`/session/${sessionId}/reflect`);
+  revalidatePath(`/problems/${problemId}`);
+}
+
+export async function requestConversationToken(sessionId: string): Promise<ConversationTokenResult> {
+  const agentId = process.env.ELEVENLABS_AGENT_ID?.trim();
+  const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
+  if (!agentId || !apiKey) return { ok: false, reason: 'unconfigured' };
+
+  const session = await getSession(sessionId);
+  if (!session || session.endedAt) return { ok: false, reason: 'session' };
+
+  try {
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
+      {
+        headers: { 'xi-api-key': apiKey },
+        cache: 'no-store'
+      }
+    );
+    if (response.status === 401 || response.status === 403) return { ok: false, reason: 'auth' };
+    if (!response.ok) return { ok: false, reason: 'network' };
+
+    const payload: unknown = await response.json();
+    if (!isConversationTokenResponse(payload)) return { ok: false, reason: 'network' };
+    return { ok: true, token: payload.token };
+  } catch {
+    return { ok: false, reason: 'network' };
+  }
+}
+
 async function saveNote(
   sessionId: string,
   problemId: string,
@@ -117,14 +166,6 @@ async function saveNote(
   revalidatePath(`/problems/${problemId}`);
   if (kind === 'next_step') redirect(`/problems/${problemId}`);
   redirect(`/session/${sessionId}`);
-}
-
-export async function saveVoiceNote(sessionId: string, problemId: string, formData: FormData) {
-  await saveNote(sessionId, problemId, 'voice', formData, true);
-}
-
-export async function saveTextNote(sessionId: string, problemId: string, formData: FormData) {
-  await saveNote(sessionId, problemId, 'text', formData, false);
 }
 
 export async function saveNextStep(sessionId: string, problemId: string, formData: FormData) {

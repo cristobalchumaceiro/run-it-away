@@ -18,7 +18,7 @@ type VoiceAgentProps = {
 };
 
 type ConversationLine = {
-  id: string;
+  id: number;
   role: 'user' | 'agent';
   message: string;
 };
@@ -143,13 +143,15 @@ function VoiceAgentInner({ sessionId, problemContext, agentId, lines }: VoiceAge
 
 export function VoiceAgent(props: VoiceAgentProps) {
   const [lines, setLines] = useState<ConversationLine[]>([]);
-  const savedMessagesRef = useRef(new Set<string>());
+  const seenEventIdsRef = useRef(new Set<number>());
+  const lineIdRef = useRef(0);
   const handleMessage = useCallback((payload: MessagePayload) => {
     const { message, role } = payload;
-    const key = `${role}:${message}`;
-    if (savedMessagesRef.current.has(key)) return;
-    savedMessagesRef.current.add(key);
-    setLines((current) => [...current, { id: key, role, message }]);
+    if (payload.event_id !== undefined) {
+      if (seenEventIdsRef.current.has(payload.event_id)) return;
+      seenEventIdsRef.current.add(payload.event_id);
+    }
+    setLines((current) => [...current, { id: lineIdRef.current++, role, message }]);
     if (role === 'user') {
       void saveRunnerUtterance(props.sessionId, props.problemId, message);
     }

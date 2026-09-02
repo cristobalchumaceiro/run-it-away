@@ -1,185 +1,48 @@
 # Run It Away
 
-**Capture the problem. Run. Come back with the answer.**
+**Pick one problem. Think about it while you move. Come back with one concrete next step.**
 
-Run It Away is a companion app for people who think best when their blood is moving. You jot down the problems you're stuck on — at work, at school, in life — and the app surfaces them at the moment you're most likely to crack them: the moment you start moving.
+Live demo: **https://run-it-away.vercel.app**
 
-> Built at a running hackathon, where the builder has to be running laps and only the runner is allowed to build.
+Most people have had the experience of the answer arriving mid-run rather than at the desk. The trouble is it arrives unaimed — you don't choose what your brain chews on, and a good thought at kilometre four is gone by the time you've stretched. Run It Away aims that time on purpose.
 
----
+Built at a running hackathon, where you had to be out running to be allowed to build.
 
-## The idea
+## The loop
 
-Aerobic exercise increases cerebral blood flow and is associated with improved divergent thinking and problem solving. Most people have experienced it: the answer arrives mid-run, mid-walk, mid-shower — never at the desk.
+1. **Dump the problem** when it's loud — a title and the messy version, no organising required.
+2. **Start moving.** The app asks once: *"Want to think about this today?"* — with one problem chosen for you.
+3. **Talk it through** on the mid-run screen: the problem large enough to read at arm's length, and a live voice conversation with a sparring partner so you never have to type.
+4. **When the run ends**, one question: *What's the next step?*
+5. **Read the problem getting worn down**, run by run, as plain sentences on its page.
 
-The problem is that the answer arrives *unprompted and unaimed*. You don't choose what your brain chews on, and when you do have a good thought at km 4, it's gone by the time you've stretched.
+## What's interesting about it
 
-Run It Away closes that loop:
+**Choosing the problem is the actual product.** Anything can record a voice note. The app picks the one problem worth carrying: the one you pinned, otherwise the open one you've neglected longest, and never one you've already solved.
 
-1. **Capture** the problem when it's bothering you (at the desk, in a meeting, in bed).
-2. **Get prompted** when your tracker detects that an activity has started: *"You're heading out. Want to think about 'How do we price the new tier?' today?"*
-3. **Think while you move** — hands-free, with optional voice capture for the thoughts that land.
-4. **Reflect afterwards**, while the endorphins are still up, and update the note with where you got to.
+**Not every activity is for thinking.** A run, a walk or a cycle prompts you. A race never does — nobody wants to solve work problems mid-race.
 
-Over time each problem accumulates a trail of thinking sessions, so you can see a problem being worn down run by run.
+**It's honest about the speech.** Whatever the transcription heard is kept as-is and shown as possibly wrong, rather than quietly cleaned up or thrown away.
 
----
+## Try the demo
 
-## Core features
+- The three seeded problems are academic ones: seminar attendance collapsing in week six, whether a literature review should be organised by method or chronology, and a survey finding that flips when the sample is weighted.
+- **Simulated tracker** (linked from the home page) is where you start a run, walk, cycle or race. Activity detection is genuinely simulated: a web app can't observe a phone or watch starting a workout. Doing that for real needs a watch app or a Strava-style integration, which is where this would go next.
+- The demo has no database, so anything you add resets. The seeded problems always come back.
+- **The voice call needs ElevenLabs credit on the configured account.** Once that runs out the call won't connect; the rest of the app still works, and you'll see the connection error on the mid-run screen.
 
-### 1. Problem notes
-The atomic unit of the app is a **problem**, not a task. A problem has:
+## Running it locally
 
-- a short title (the question you'd ask a friend)
-- optional context / constraints / what you've already tried
-- a status: `open`, `mulling`, `cracked`, `parked`
-- tags (`work`, `thesis`, `relationship`, `side-project`)
-- a history of **thinking sessions** attached to it
-
-### 2. Activity-triggered prompting
-When a connected tracker reports the start of an activity, Run It Away sends a single, low-friction notification:
-
-> 🏃 Activity started — think about *"Should we rewrite the ingest pipeline?"*
-> [Yes] [Pick another] [Not today]
-
-Selection heuristics (v1): most recently updated open problem, longest-neglected problem, or a problem the user pinned as "next up". Never more than one prompt per activity.
-
-### 3. Hands-free capture during activity
-- **Voice memos** — one tap (or a headphone gesture), speak, transcribe automatically into the problem's session log.
-- **Quick markers** — mark a moment as *insight* / *dead end* without stopping.
-
-### 4. Post-activity reflection
-Within a configurable window after the activity ends (default 30 minutes, the "warm window"), the app nudges you once to update the note: what changed, what's the next concrete step, and whether the status moved.
-
-### 5. Problem journal
-A per-problem timeline: every prompt, every session, every voice note, every status change — plus stats like *distance run against this problem* and *time to crack*.
-
----
-
-## Integrations
-
-Run It Away doesn't try to be a tracker. It listens to the ones you already use.
-
-| Source | Mechanism | Notes |
-| --- | --- | --- |
-| **Apple Health / HealthKit** | On-device workout observation | Activity start detection via workout session events; runs, walks, cycling, rowing |
-| **Strava** | Webhook subscription (activity create/update) | Strava's webhooks are activity-*upload* oriented, so on their own they mostly power post-activity reflection rather than live start prompts |
-| **Garmin / Coros / Polar** | Vendor APIs / Health SDKs | Roadmap |
-| **Manual** | "Start thinking session" button | Always available; no wearable required |
-
-**Design note:** reliable *start-of-activity* detection is the crux of the product and is easiest on-device (HealthKit workout events, or motion-based auto-detect). Cloud webhooks from services like Strava generally fire once an activity is finished/uploaded. The plan is therefore on-device detection for the live prompt, cloud integrations to enrich and to catch activities the phone missed.
-
----
-
-## User journeys
-
-**The desk capture**
-Ana is stuck on how to structure a pricing tier. She opens Run It Away, types the question, adds two constraints, closes the app. 20 seconds.
-
-**The run prompt**
-Two days later she starts a run; her watch begins a workout. Her phone buzzes once: *think about pricing today?* She taps Yes and puts the phone away.
-
-**The insight**
-At km 5 she says out loud into her headphones: "usage-based for teams, flat for solo, and cap the overage." Marked as an insight.
-
-**The warm window**
-Back home, the app asks her to close the loop. She reads the transcript, writes two lines, and moves the problem from `mulling` to `cracked`. Next step: "draft the pricing page."
-
----
-
-## Product principles
-
-1. **One prompt, one problem.** The app interrupts at most once per activity, and never mid-thought.
-2. **No screens while moving.** Anything required during activity must be doable by voice or a single tap.
-3. **Notes are for thinking, not for tracking.** No streaks, no guilt, no gamified pressure.
-4. **Your body data stays yours.** Health data is read for one signal — "an activity started" — and is not stored beyond what's needed to attach a session to an activity.
-
----
-
-## Architecture sketch
-
-```
-┌──────────────────────┐        ┌──────────────────────┐
-│  Mobile app          │        │  Backend             │
-│  ──────────          │        │  ───────             │
-│  Problem capture UI  │◄──────►│  Problems / sessions │
-│  HealthKit observer  │        │  API                 │
-│  Local notifications │        │  Prompt selection    │
-│  Voice capture       │        │  Transcription       │
-└──────────────────────┘        │  Integration hub     │
-                                │   ├─ Strava webhooks │
-                                │   └─ Garmin, Coros   │
-                                └──────────────────────┘
-```
-
-Suggested stack (hackathon-friendly): React Native / Expo client, HealthKit via a workout-observer module, Node or Python API, Postgres, on-device or hosted speech-to-text.
-
-### Data model (v1)
-
-```
-Problem   id, title, context, status, tags[], pinned, created_at, updated_at
-Session   id, problem_id, activity_id?, started_at, ended_at, source
-Note      id, problem_id, session_id?, kind (text|voice|marker), body, created_at
-Activity  id, source (healthkit|strava|manual), type, started_at, ended_at, distance, duration
-Prompt    id, problem_id, activity_id, sent_at, response (accepted|swapped|declined)
-```
-
----
-
-## Scope
-
-**Hackathon MVP**
-- Create / edit / list problem notes
-- Manual "start thinking session" + post-session reflection
-- HealthKit (or simulated) activity-start trigger → single prompt
-- Voice memo attached to a session, transcribed
-- Problem journal view
-
-**Next**
-- Strava sync for post-activity reflection and activity enrichment
-- Smarter prompt selection (neglect + user intent + activity length)
-- Garmin / Coros / Polar
-- Weekly digest: what you thought about, what moved
-- Shared problems for teams and study groups
-
-**Explicitly not in scope**
-- Being a training log or a fitness tracker
-- A general to-do app
-- Social feed / leaderboards
-
----
-
-## Open questions
-
-- How do we detect activity start reliably enough for the prompt to feel magical, on Android as well as iOS?
-- Should walking count by default, or only sustained aerobic activity?
-- Is one problem per activity the right constraint, or should long activities allow a second?
-- How much structure should a problem have before it's worth prompting about?
-
----
-
-## Status
-
-Concept and README. Built at a hackathon; contributions and forks welcome.
-
----
-
-## Getting started / running locally
-
-Run It Away is a Next.js App Router app with a Postgres schema managed by Drizzle.
-The app also has a seeded in-memory fallback, so it runs locally and builds on
-Vercel without database provisioning.
+A Next.js App Router app, with a Postgres schema managed by Drizzle and a seeded in-memory fallback so it runs with no setup.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
+Then open http://localhost:3000.
 
-### Optional Postgres
-
-Set `DATABASE_URL` to a Postgres connection string (Neon works well for Vercel):
+With `DATABASE_URL` unset the app serves the demo problems from memory and resets when the server restarts. To persist, point it at Postgres (Neon works well on Vercel):
 
 ```bash
 export DATABASE_URL="postgres://..."
@@ -187,12 +50,8 @@ npx drizzle-kit migrate
 npx tsx lib/db/seed.ts
 ```
 
-When `DATABASE_URL` is unset, the app uses the same demo problems and sessions
-from an in-memory repository. That fallback resets when a server process or
-serverless instance restarts; it is intended for demos, not persistence.
+For the voice call, set `ELEVENLABS_AGENT_ID` and `ELEVENLABS_API_KEY`. The server uses the key to mint a short-lived WebRTC conversation token, so it never reaches the browser. Without both, the mid-run screen says so and you can still end the run and answer the reflection question.
 
-### Voice agent
+## Status
 
-Set `ELEVENLABS_AGENT_ID` and `ELEVENLABS_API_KEY` for the authenticated
-ElevenLabs agent. The server mints a WebRTC conversation token with the API key;
-the key never reaches the browser.
+Hackathon project, finished and not maintained. Forks welcome.
